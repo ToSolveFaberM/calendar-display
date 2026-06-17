@@ -6,3 +6,4 @@ laptop/google_token.json
 # Python
 __pycache__/
 *.pyc
+.venv/

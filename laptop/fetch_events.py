@@ -1,82 +1,81 @@
 """
-Fetch Outlook calendar events via Microsoft Graph and normalize them into the
-flat structure the ESP32 consumes.
+Fetch Google Calendar events and normalize them into the flat structure
+the ESP32 consumes.
 """
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
-import requests
+from googleapiclient.discovery import build
 
 import config
 import timefmt
-from ms_auth import get_ms_token
-
-GRAPH_CALENDAR_VIEW = "https://graph.microsoft.com/v1.0/me/calendarView"
+from google_auth import get_google_creds
 
 
-def _window_utc():
-    """
-    Build the start/end of the fetch window (today 00:00 -> tomorrow 23:59
-    in local time) expressed as UTC ISO strings, which is what Graph wants.
-    """
-    today = timefmt.today_local()
-    start_local = datetime(today.year, today.month, today.day, tzinfo=timefmt.LOCAL_TZ)
-    end_local = start_local + timedelta(days=2)  # through end of tomorrow
-    utc = ZoneInfo("UTC")
-    fmt = "%Y-%m-%dT%H:%M:%SZ"
-    return start_local.astimezone(utc).strftime(fmt), end_local.astimezone(utc).strftime(fmt)
+def _find_calendar_id(service):
+    result = service.calendarList().list().execute()
+    name = config.GOOGLE_CALENDAR_NAME.lower()
+    for cal in result.get("items", []):
+        if cal.get("summary", "").lower() == name:
+            return cal["id"]
+    raise ValueError(f"Calendar '{config.GOOGLE_CALENDAR_NAME}' not found in Google Calendar.")
 
 
 def fetch_events():
     """Return a list of normalized event dicts, sorted by start time."""
-    token = get_ms_token()
-    start_utc, end_utc = _window_utc()
+    creds = get_google_creds()
+    service = build("calendar", "v3", credentials=creds)
 
-    params = {
-        "startDateTime": start_utc,
-        "endDateTime": end_utc,
-        "$select": "subject,start,end,location,isAllDay",
-        "$orderby": "start/dateTime asc",
-        "$top": "25",
-    }
-    headers = {
-        "Authorization": f"Bearer {token}",
-        # Ask Graph to return times already converted to our local zone.
-        "Prefer": f'outlook.timezone="{config.LOCAL_TIMEZONE}"',
-    }
-
-    resp = requests.get(GRAPH_CALENDAR_VIEW, headers=headers, params=params, timeout=20)
-    resp.raise_for_status()
-    raw = resp.json().get("value", [])
+    calendar_id = _find_calendar_id(service)
 
     today = timefmt.today_local()
+    start_local = datetime(today.year, today.month, today.day, tzinfo=timefmt.LOCAL_TZ)
+    end_local = start_local + timedelta(days=2)
+    utc = ZoneInfo("UTC")
+    time_min = start_local.astimezone(utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    time_max = end_local.astimezone(utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    result = service.events().list(
+        calendarId=calendar_id,
+        timeMin=time_min,
+        timeMax=time_max,
+        singleEvents=True,
+        orderBy="startTime",
+        maxResults=config.MAX_EVENTS,
+    ).execute()
+
     events = []
-    for item in raw:
-        all_day = bool(item.get("isAllDay"))
-        start_tz = item["start"].get("timeZone", config.LOCAL_TIMEZONE)
-        end_tz = item["end"].get("timeZone", config.LOCAL_TIMEZONE)
-        start_dt = timefmt.parse_graph_datetime(item["start"]["dateTime"], start_tz)
-        end_dt = timefmt.parse_graph_datetime(item["end"]["dateTime"], end_tz)
-        start_local = timefmt.to_local(start_dt)
-        end_local = timefmt.to_local(end_dt)
+    for item in result.get("items", []):
+        start = item["start"]
+        end = item["end"]
+        all_day = "date" in start and "dateTime" not in start
 
-        location = (item.get("location") or {}).get("displayName", "") or ""
+        if all_day:
+            event_date = date.fromisoformat(start["date"])
+            start_hhmm = ""
+            end_hhmm = ""
+            sortkey = datetime(event_date.year, event_date.month, event_date.day, tzinfo=timefmt.LOCAL_TZ)
+        else:
+            start_dt = timefmt.to_local(datetime.fromisoformat(start["dateTime"]))
+            end_dt = timefmt.to_local(datetime.fromisoformat(end["dateTime"]))
+            event_date = start_dt.date()
+            start_hhmm = timefmt.hhmm(start_dt)
+            end_hhmm = timefmt.hhmm(end_dt)
+            sortkey = start_dt
 
-        events.append(
-            {
-                "title": item.get("subject", "(no title)"),
-                "start": "" if all_day else timefmt.hhmm(start_local),
-                "end": "" if all_day else timefmt.hhmm(end_local),
-                "date": timefmt.day_label(start_local.date(), today),
-                "location": location,
-                "allDay": all_day,
-                "_sortkey": start_local,  # internal, stripped before sending
-            }
-        )
+        events.append({
+            "title": item.get("summary", "(no title)"),
+            "start": start_hhmm,
+            "end": end_hhmm,
+            "date": timefmt.day_label(event_date, today),
+            "location": item.get("location", ""),
+            "allDay": all_day,
+            "_sortkey": sortkey,
+        })
 
     events.sort(key=lambda e: e["_sortkey"])
     for e in events:
         e.pop("_sortkey", None)
 
-    return events[: config.MAX_EVENTS]
+    return events

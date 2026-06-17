@@ -10,13 +10,13 @@ credentials.json should NOT be committed to version control.
 # ---------------------------------------------------------------------------
 
 # Application (client) ID from your Azure app registration.
-MS_CLIENT_ID = "PUT-YOUR-AZURE-CLIENT-ID-HERE"
+MS_CLIENT_ID = "41bc440d-5a77-4618-abce-25b47d8bf16f"
 
 # Tenant: "common" works for most accounts.
 #   "common"      -> work/school AND personal Microsoft accounts
 #   "consumers"   -> personal Microsoft accounts only
 #   "organizations" or a tenant GUID -> work/school only
-MS_AUTHORITY = "https://login.microsoftonline.com/common"
+MS_AUTHORITY = "https://login.microsoftonline.com/cb6a9163-a40a-49a8-8dc8-e2d204654bfd"
 
 # Delegated scope. Calendars.Read is enough to read events.
 MS_SCOPES = ["Calendars.Read"]
@@ -36,7 +36,13 @@ GOOGLE_CREDENTIALS_FILE = "credentials.json"
 GOOGLE_TOKEN_FILE = "google_token.json"
 
 # Read-only access to Google Tasks.
-GOOGLE_SCOPES = ["https://www.googleapis.com/auth/tasks.readonly"]
+GOOGLE_SCOPES = [
+    "https://www.googleapis.com/auth/tasks.readonly",
+    "https://www.googleapis.com/auth/calendar.readonly",
+]
+
+# Name of the Google Calendar to fetch events from (case-insensitive).
+GOOGLE_CALENDAR_NAME = "Calendar"
 
 # Exact names of the task lists you want, as they appear in Google Tasks.
 # Names are case-insensitive matched. Empty list => all lists.
@@ -52,7 +58,7 @@ INCLUDE_TASKS_WITHOUT_DUE = True
 
 # Flask bind host/port. 0.0.0.0 makes it reachable from the ESP32 on the LAN.
 HTTP_HOST = "0.0.0.0"
-HTTP_PORT = 8080
+HTTP_PORT = 5000
 
 # Background refresh interval in seconds.
 REFRESH_INTERVAL_SECONDS = 300  # 5 minutes
