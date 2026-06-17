@@ -1,0 +1,8 @@
+# Secrets and auth caches — never commit these
+laptop/credentials.json
+laptop/ms_token_cache.json
+laptop/google_token.json
+
+# Python
+__pycache__/
+*.pyc
