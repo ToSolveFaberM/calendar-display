@@ -1,5 +1,5 @@
 // config.h - user configuration for the calendar + tasks serial client.
-// Edit these values for your network and laptop, then flash.
+// Copy this file to config.h and fill in your values, then flash.
 
 #pragma once
 
@@ -11,8 +11,8 @@
 // ---- Data server (your laptop) ----
 // Prefer the mDNS hostname so it survives DHCP changes. If .local lookups
 // fail on your network, set SERVER_HOST to a hardcoded IP like "192.168.1.42".
-#define SERVER_HOST      "laptop-name.local"
-#define SERVER_PORT      8080
+#define SERVER_HOST      "192.168.x.x"
+#define SERVER_PORT      5000
 #define SERVER_PATH      "/data"
 
 // ---- Sleep schedule ----

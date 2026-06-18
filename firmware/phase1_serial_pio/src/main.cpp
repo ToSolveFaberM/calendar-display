@@ -277,7 +277,7 @@ static void runCycle() {
 
 void setup() {
   Serial.begin(115200);
-  delay(200);  // let USB CDC settle after wake
+  delay(3000);  // wait for terminal to reconnect after reset
 
   runCycle();
   // In normal mode runCycle() ends in deep sleep and never returns here.

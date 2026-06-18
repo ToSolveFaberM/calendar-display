@@ -3,6 +3,9 @@ laptop/credentials.json
 laptop/ms_token_cache.json
 laptop/google_token.json
 
+# Firmware config with real WiFi credentials — use config.example.h as template
+firmware/phase1_serial_pio/include/config.h
+
 # Python
 __pycache__/
 *.pyc
