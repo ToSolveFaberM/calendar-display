@@ -2,8 +2,7 @@
 Fetch Google Tasks from the configured lists and normalize them into the flat
 structure the ESP32 consumes.
 
-Sorting: overdue first, then by due date ascending, then no-due-date tasks
-last (alphabetical within each group).
+Order: tasks are returned in the same order as they appear in Google Tasks.
 """
 
 from datetime import datetime
@@ -101,25 +100,7 @@ def fetch_tasks():
                     "overdue": overdue,
                     "list": list_name,
                     "notes": notes,
-                    "_due_date": due_date,  # internal sort helper
                 }
             )
-
-    def sort_key(t):
-        # Group 0: overdue, 1: has due date, 2: no due date
-        if t["overdue"]:
-            group = 0
-            key_date = t["_due_date"]
-        elif t["_due_date"] is not None:
-            group = 1
-            key_date = t["_due_date"]
-        else:
-            group = 2
-            key_date = None
-        return (group, key_date or today, t["title"].lower())
-
-    tasks.sort(key=sort_key)
-    for t in tasks:
-        t.pop("_due_date", None)
 
     return tasks[: config.MAX_TASKS]
